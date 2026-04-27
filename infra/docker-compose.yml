@@ -1,0 +1,26 @@
+services:
+  db:
+    image: mysql:8
+    container_name: nutrition_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: nutrition
+      MYSQL_USER: nutrition
+      MYSQL_PASSWORD: nutritionpass
+    ports:
+      - "3307:3306"
+    volumes:
+      - nutrition_mysql_data:/var/lib/mysql
+
+  adminer:
+    image: adminer:latest
+    container_name: nutrition_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  nutrition_mysql_data:

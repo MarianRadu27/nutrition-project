@@ -1,15 +1,22 @@
 # Node / Next.js
 frontend/node_modules/
 frontend/.next/
-frontend/.env.local
+frontend/out/
 
 # Python
 backend/.venv/
 backend/__pycache__/
-backend/*.pyc
+backend/**/*.pyc
+backend/**/*.pyo
 
 # Env secrets
+.env
 backend/.env
+frontend/.env
+frontend/.env.local
+
+# Temporary work files
+*.xlsx
 
 # OS junk
 .DS_Store

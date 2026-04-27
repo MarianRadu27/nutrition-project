@@ -1,0 +1,8 @@
+ALTER TABLE categories
+ADD COLUMN name_ro VARCHAR(255) NULL;
+
+ALTER TABLE subcategories
+ADD COLUMN name_ro VARCHAR(255) NULL;
+
+ALTER TABLE foods
+ADD COLUMN food_description_ro VARCHAR(255) NULL;

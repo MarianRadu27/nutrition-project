@@ -1,0 +1,4 @@
+fastapi[standard]
+pymysql
+python-dotenv
+pydantic

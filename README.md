@@ -407,16 +407,16 @@ This project demonstrates practical full-stack development skills, including:
 
 ## Author
 
-Created by **Your Name**.
+Created by **Marian**.
 
 GitHub:
 
 ```text
-https://github.com/your-username
+https://github.com/MarianRadu27/nutrition-project
 ```
 
 LinkedIn:
 
 ```text
-https://www.linkedin.com/in/your-linkedin-profile
+[https://www.linkedin.com/in/your-linkedin-profile](https://www.linkedin.com/in/ioan-marian-radu/)
 ```

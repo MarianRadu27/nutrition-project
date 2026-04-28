@@ -92,7 +92,7 @@ nutrition-project/
 
 ### Food Search
 
-Users can search for food items stored in the PostgreSQL database.
+Users can search for food items stored in the MySQL database.
 
 ### Meal Nutrition Calculator
 
@@ -160,7 +160,7 @@ cp .env.example .env
 
 On Windows, the file can also be copied manually.
 
-Make sure the database connection values match your PostgreSQL setup.
+Make sure the database connection values match your MySQL setup.
 
 ### 6. Run the backend server
 
@@ -234,7 +234,7 @@ From the project root, run:
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-This starts the PostgreSQL database container.
+This starts the MySQL database container.
 
 After the database is running, make sure the backend `.env` file contains the correct database connection details.
 
@@ -397,7 +397,7 @@ Planned or possible improvements:
 This project demonstrates practical full-stack development skills, including:
 
 - backend API development;
-- database connection and PostgreSQL usage;
+- database connection and MySQL usage;
 - frontend development with Next.js;
 - environment configuration;
 - Docker-based infrastructure;

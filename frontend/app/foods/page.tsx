@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
+import React, { useEffect, useMemo, useState } from "react";
 
 type Lang = "en" | "ro";
+type SortDirection = "asc" | "desc";
 
 type Category = {
   id: number;
@@ -36,6 +36,28 @@ type Food = {
   carbo_g: number | null;
   fat_g: number | null;
   fiber_g: number | null;
+  h2o_g: number | null;
+  sat_g: number | null;
+  mono_g: number | null;
+  poly_g: number | null;
+  trans_g: number | null;
+  chol_mg: number | null;
+  calc_mg: number | null;
+  iron_mg: number | null;
+  magn_mg: number | null;
+  pota_mg: number | null;
+  sodi_mg: number | null;
+  zinc_mg: number | null;
+  vit_a_ug: number | null;
+  vit_e_mg: number | null;
+  thia_mg: number | null;
+  ribo_mg: number | null;
+  niac_mg: number | null;
+  vit_b6_mg: number | null;
+  fola_ug: number | null;
+  vit_c_mg: number | null;
+  vit_b12_ug: number | null;
+  sele_ug: number | null;
 };
 
 type FoodsResponse = {
@@ -45,8 +67,53 @@ type FoodsResponse = {
   count: number;
 };
 
+type FoodGroup = {
+  // This group represents one Food section inside a Category.
+  key: string;
+  name: string;
+  items: Food[];
+};
+
+type CategoryGroup = {
+  // This group represents one Category section that contains multiple Food groups.
+  key: string;
+  name: string;
+  foods: FoodGroup[];
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 const LANG_KEY = "app_lang";
+
+type ExtraNutrientColumn = {
+  label: string;
+  getValue: (food: Food) => number | null;
+};
+
+const EXTRA_NUTRIENT_COLUMNS: ExtraNutrientColumn[] = [
+  // These columns are shown only when the general nutrients button is active.
+  { label: "Water (g)", getValue: (food) => food.h2o_g },
+  { label: "Saturated fat (g)", getValue: (food) => food.sat_g },
+  { label: "Monounsaturated fat (g)", getValue: (food) => food.mono_g },
+  { label: "Polyunsaturated fat (g)", getValue: (food) => food.poly_g },
+  { label: "Trans fat (g)", getValue: (food) => food.trans_g },
+  { label: "Cholesterol (mg)", getValue: (food) => food.chol_mg },
+  { label: "Calcium (mg)", getValue: (food) => food.calc_mg },
+  { label: "Iron (mg)", getValue: (food) => food.iron_mg },
+  { label: "Magnesium (mg)", getValue: (food) => food.magn_mg },
+  { label: "Potassium (mg)", getValue: (food) => food.pota_mg },
+  { label: "Sodium (mg)", getValue: (food) => food.sodi_mg },
+  { label: "Zinc (mg)", getValue: (food) => food.zinc_mg },
+  { label: "Vitamin A (ug)", getValue: (food) => food.vit_a_ug },
+  { label: "Vitamin E (mg)", getValue: (food) => food.vit_e_mg },
+  { label: "Thiamin (mg)", getValue: (food) => food.thia_mg },
+  { label: "Riboflavin (mg)", getValue: (food) => food.ribo_mg },
+  { label: "Niacin (mg)", getValue: (food) => food.niac_mg },
+  { label: "Vitamin B6 (mg)", getValue: (food) => food.vit_b6_mg },
+  { label: "Folate (ug)", getValue: (food) => food.fola_ug },
+  { label: "Vitamin C (mg)", getValue: (food) => food.vit_c_mg },
+  { label: "Vitamin B12 (ug)", getValue: (food) => food.vit_b12_ug },
+  { label: "Selenium (ug)", getValue: (food) => food.sele_ug },
+];
 
 function formatNumber(value: number | null): string {
   if (value === null || Number.isNaN(value)) {
@@ -55,15 +122,69 @@ function formatNumber(value: number | null): string {
   return value.toFixed(2);
 }
 
+function groupFoodsByCategoryAndFood(items: Food[]): CategoryGroup[] {
+  // We use maps internally so each category and food group is created only once.
+  const categoryMap = new Map<string, CategoryGroup>();
+
+  for (const item of items) {
+    const categoryName = item.category_name_display ?? "Uncategorized";
+    const foodName = item.subcategory_name_display ?? "Other";
+
+    let categoryGroup = categoryMap.get(categoryName);
+
+    if (!categoryGroup) {
+      categoryGroup = {
+        key: categoryName,
+        name: categoryName,
+        foods: [],
+      };
+
+      categoryMap.set(categoryName, categoryGroup);
+    }
+
+    let foodGroup = categoryGroup.foods.find((group) => group.name === foodName);
+
+    if (!foodGroup) {
+      foodGroup = {
+        key: `${categoryName}-${foodName}`,
+        name: foodName,
+        items: [],
+      };
+
+      categoryGroup.foods.push(foodGroup);
+    }
+
+    foodGroup.items.push(item);
+  }
+
+  return Array.from(categoryMap.values());
+}
+
+function sortFoodsByName(items: Food[], direction: SortDirection): Food[] {
+  // We copy the array before sorting so we do not mutate the original API response.
+  return [...items].sort((firstFood, secondFood) => {
+    const comparison = firstFood.name_display.localeCompare(secondFood.name_display);
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+}
+
 export default function FoodsPage() {
   const [lang, setLang] = useState<Lang>("en");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [limitInput, setLimitInput] = useState("5000");
+  const [limit, setLimit] = useState(5000);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>("");
   const [foodsData, setFoodsData] = useState<FoodsResponse | null>(null);
+  const [showExtraNutrients, setShowExtraNutrients] = useState(false);
+  const [hoveredFoodId, setHoveredFoodId] = useState<number | null>(null);
+  const [openCategoryKeys, setOpenCategoryKeys] = useState<string[]>([]);
+  const [openFoodKeys, setOpenFoodKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +242,7 @@ export default function FoodsPage() {
   const foodsUrl = useMemo(() => {
     const params = new URLSearchParams();
     params.set("lang", lang);
-    params.set("limit", "100");
+    params.set("limit", String(limit));
     params.set("offset", "0");
     if (search.trim()) {
       params.set("search", search.trim());
@@ -133,7 +254,28 @@ export default function FoodsPage() {
       params.set("subcategory_id", selectedSubcategoryId);
     }
     return `${API_BASE}/api/foods?${params.toString()}`;
-  }, [lang, search, selectedCategoryId, selectedSubcategoryId]);
+  }, [lang, limit, search, selectedCategoryId, selectedSubcategoryId]);
+
+  const sortedFoods = foodsData ? sortFoodsByName(foodsData.items, sortDirection) : [];
+  const groupedFoods = groupFoodsByCategoryAndFood(sortedFoods);
+
+  function toggleCategory(categoryKey: string) {
+    // Toggle one category section between collapsed and expanded.
+    setOpenCategoryKeys((currentKeys) =>
+      currentKeys.includes(categoryKey)
+        ? currentKeys.filter((key) => key !== categoryKey)
+        : [...currentKeys, categoryKey],
+    );
+  }
+
+  function toggleFood(foodKey: string) {
+    // Toggle one food section between collapsed and expanded.
+    setOpenFoodKeys((currentKeys) =>
+      currentKeys.includes(foodKey)
+        ? currentKeys.filter((key) => key !== foodKey)
+      : [...currentKeys, foodKey],
+    );
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -185,7 +327,7 @@ export default function FoodsPage() {
           <input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search food name..."
+            placeholder="Search food description name..."
             style={{ flex: 1, padding: 8 }}
           />
           <button type="button" onClick={() => setSearch(searchInput)}>
@@ -216,13 +358,66 @@ export default function FoodsPage() {
             style={{ padding: 8, minWidth: 240 }}
             disabled={!selectedCategoryId}
           >
-            <option value="">All subcategories</option>
+            <option value="">All foods</option>
             {subcategories.map((subcategory) => (
               <option key={subcategory.id} value={String(subcategory.id)}>
                 {subcategory.name_display}
               </option>
             ))}
           </select>
+
+          <input
+            type="number"
+            min="1"
+            max="5000"
+            value={limitInput}
+            onChange={(event) => setLimitInput(event.target.value)}
+            style={{ padding: 8, width: 100 }}
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              const nextLimit = Number(limitInput);
+
+              if (Number.isFinite(nextLimit) && nextLimit > 0) {
+                setLimit(nextLimit);
+              }
+            }}
+            style={{ padding: 8 }}
+          >
+            Apply rows
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (foodsData) {
+                setLimitInput(String(foodsData.count));
+                setLimit(foodsData.count);
+              }
+            }}
+            style={{ padding: 8 }}
+          >
+            All
+          </button>
+
+          <select
+            value={sortDirection}
+            onChange={(event) => setSortDirection(event.target.value as SortDirection)}
+            style={{ padding: 8, minWidth: 120 }}
+          >
+            <option value="asc">Sort A-Z</option>
+            <option value="desc">Sort Z-A</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={() => setShowExtraNutrients((currentValue) => !currentValue)}
+            style={{ padding: 8 }}
+          >
+            {showExtraNutrients ? "Show Less Nutrients" : "Show More Nutrients"}
+          </button>
         </div>
       </section>
 
@@ -234,14 +429,17 @@ export default function FoodsPage() {
           <p>
             Showing {foodsData.items.length} / {foodsData.count}
           </p>
+          {foodsData.items.length < foodsData.count && (
+            <p style={{ color: "#fc0f0f" }}>
+              Groups may be incomplete because only part of the table is loaded. To see all the data, you need to load ALL rows.
+            </p>
+          )}
           <div style={{ overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 980 }}>
               <thead>
                 <tr>
                   {[
-                    "Food",
-                    "Category",
-                    "Subcategory",
+                    "Food Description",
                     "Qty",
                     "Measure",
                     "Wt (g)",
@@ -250,6 +448,7 @@ export default function FoodsPage() {
                     "Carbs (g)",
                     "Fat (g)",
                     "Fiber (g)",
+                    ...(showExtraNutrients ? EXTRA_NUTRIENT_COLUMNS.map((column) => column.label) : []),
                   ].map((header) => (
                     <th
                       key={header}
@@ -266,33 +465,96 @@ export default function FoodsPage() {
                 </tr>
               </thead>
               <tbody>
-                {foodsData.items.map((food) => (
-                  <tr key={food.id}>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{food.name_display}</td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
-                      {food.category_name_display ?? "-"}
-                    </td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
-                      {food.subcategory_name_display ?? "-"}
-                    </td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
-                      {formatNumber(food.quantity)}
-                    </td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{food.measure ?? "-"}</td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{formatNumber(food.wt_g)}</td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
-                      {formatNumber(food.ener_kcal)}
-                    </td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{formatNumber(food.prot_g)}</td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
-                      {formatNumber(food.carbo_g)}
-                    </td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{formatNumber(food.fat_g)}</td>
-                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
-                      {formatNumber(food.fiber_g)}
-                    </td>
-                  </tr>
-                ))}
+                {groupedFoods.map((categoryGroup) => {
+                  const isCategoryOpen = openCategoryKeys.includes(categoryGroup.key);
+
+                  return (
+                    <React.Fragment key={categoryGroup.key}>
+                      {/* Category section row. */}
+                      <tr onClick={() => toggleCategory(categoryGroup.key)} style={{ cursor: "pointer" }}>
+                        <td
+                          colSpan={showExtraNutrients ? 9 + EXTRA_NUTRIENT_COLUMNS.length : 9}
+                          style={{
+                            border: "1px solid #bbb",
+                            padding: 10,
+                            fontWeight: "bold",
+                            backgroundColor: "#e8f0fe",
+                          }}
+                        >
+                          {isCategoryOpen ? "v" : ">"} Category: {categoryGroup.name}
+                        </td>
+                      </tr>
+
+                      {isCategoryOpen &&
+                        categoryGroup.foods.map((foodGroup) => {
+                          const isFoodOpen = openFoodKeys.includes(foodGroup.key);
+
+                          return (
+                            <React.Fragment key={foodGroup.key}>
+                              {/* Food section row inside the current category. */}
+                              <tr onClick={() => toggleFood(foodGroup.key)} style={{ cursor: "pointer" }}>
+                                <td
+                                  colSpan={showExtraNutrients ? 9 + EXTRA_NUTRIENT_COLUMNS.length : 9}
+                                  style={{
+                                    border: "1px solid #ccc",
+                                    padding: 8,
+                                    paddingLeft: 24,
+                                    fontWeight: "bold",
+                                    backgroundColor: "#f6f8fa",
+                                  }}
+                                >
+                                  {isFoodOpen ? "v" : ">"} Food: {foodGroup.name}
+                                </td>
+                              </tr>
+
+                              {isFoodOpen &&
+                                foodGroup.items.map((food) => (
+                                  <tr
+                                    key={food.id}
+                                    onMouseEnter={() => setHoveredFoodId(food.id)}
+                                    onMouseLeave={() => setHoveredFoodId(null)}
+                                    style={{
+                                      backgroundColor: hoveredFoodId === food.id ? "#fff7d6" : "transparent",
+                                    }}
+                                  >
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{food.name_display}</td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.quantity)}
+                                    </td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>{food.measure ?? "-"}</td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.wt_g)}
+                                    </td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.ener_kcal)}
+                                    </td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.prot_g)}
+                                    </td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.carbo_g)}
+                                    </td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.fat_g)}
+                                    </td>
+                                    <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                                      {formatNumber(food.fiber_g)}
+                                    </td>
+
+                                    {showExtraNutrients &&
+                                      EXTRA_NUTRIENT_COLUMNS.map((column) => (
+                                        <td key={column.label} style={{ border: "1px solid #ddd", padding: 8, backgroundColor: "#f3f3f3"}}>
+                                          {formatNumber(column.getValue(food))}
+                                        </td>
+                                      ))}
+                                  </tr>
+                                ))}
+                            </React.Fragment>
+                          );
+                        })}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

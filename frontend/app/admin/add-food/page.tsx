@@ -138,7 +138,7 @@ export default function AdminAddFoodPage() {
         </fieldset>
 
         <fieldset style={{ border: "1px solid #ddd", padding: 12 }}>
-          <legend>Subcategory</legend>
+          <legend>Food</legend>
           <label>
             subcategory_id (optional)
             <input
@@ -167,7 +167,7 @@ export default function AdminAddFoodPage() {
         </fieldset>
 
         <fieldset style={{ border: "1px solid #ddd", padding: 12 }}>
-          <legend>Food</legend>
+          <legend>Food Description</legend>
           <label>
             food_description (EN)
             <input

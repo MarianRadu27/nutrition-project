@@ -84,7 +84,7 @@ def get_foods(
     category_id: int | None = Query(default=None),
     subcategory_id: int | None = Query(default=None),
     lang: schemas.Lang = Query(default="en"),
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=all, ge=1, le=5000),
     offset: int = Query(default=0, ge=0),
     connection: Connection = Depends(get_db_connection),
 ) -> schemas.FoodsListResponse:

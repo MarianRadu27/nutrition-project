@@ -79,7 +79,9 @@ FOOD_COLUMNS = [
 
 HEADER_ALIAS_TO_DB = {
     "dacode": "da_code",
-    "fooddescription": "food_description",
+     "fooddescription": "food_description",
+    "ownsubcategory": "own_subcategory",
+    "isownsubcategory": "own_subcategory",
     "quantity": "quantity",
     "measure": "measure",
     "wtg": "wt_g",
@@ -132,6 +134,7 @@ class ImportStats:
     foods_inserted: int = 0
     foods_updated: int = 0
     foods_skipped: int = 0
+    self_subcategory_foods: int = 0
     warnings: int = 0
     food_preview: list[dict[str, Any]] = field(default_factory=list)
     food_rows_processed: int = 0
@@ -169,6 +172,19 @@ def clean_text(value: Any) -> str | None:
     if is_blank(value):
         return None
     return normalize_space(str(value))
+
+
+def clean_bool(value: Any) -> bool:
+    """Read optional TRUE/FALSE style flags from Excel."""
+    if is_blank(value):
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+
+    text = normalize_space(str(value)).lower()
+    return text in {"true", "yes", "y", "1", "x"}
 
 
 def parse_da_code(value: Any) -> int | None:
@@ -438,7 +454,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--excel",
-        default=r"..\..\TABEL ALIM.xlsx",
+        default=r"..\data\FoodsFinal.xlsx",
         help="Path to Excel file (absolute path or relative to this script)",
     )
     parser.add_argument("--sheet", help="Single sheet to import (default: all sheets)")
@@ -513,6 +529,33 @@ def process_sheet(
                     stats,
                 )
                 continue
+
+            is_own_subcategory = (
+                clean_bool(row[column_lookup["own_subcategory"]])
+                if "own_subcategory" in column_lookup
+                else False
+            )
+
+            if is_own_subcategory:
+                if current_category_id is None:
+                    warn(
+                        f"[{sheet_name}] row {row_index + 2}: food '{description}' is marked "
+                        "as own_subcategory but has no current category",
+                        stats,
+                    )
+                else:
+                    current_subcategory_id = upsert_subcategory(
+                        cursor,
+                        category_id=current_category_id,
+                        subcategory_name=description,
+                        stats=stats,
+                    )
+                    current_subcategory_name = description
+                    stats.self_subcategory_foods += 1
+                    if args.verbose:
+                        print(
+                            f"[{sheet_name}] food '{description}' becomes its own subcategory"
+                        )
 
             if current_subcategory_id is None:
                 warn(
@@ -681,6 +724,7 @@ def main() -> int:
     print(f"  foods inserted: {stats.foods_inserted}")
     print(f"  foods updated:  {stats.foods_updated}")
     print(f"  foods skipped:  {stats.foods_skipped}")
+    print(f"  own-subcategory foods: {stats.self_subcategory_foods}")
     print(f"  warnings:       {stats.warnings}")
 
     if args.limit is not None:

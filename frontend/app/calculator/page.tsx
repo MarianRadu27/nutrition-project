@@ -6,12 +6,35 @@ type Lang = "en" | "ro";
 
 type FoodSearchItem = {
   id: number;
+  category_id: number | null;
+  subcategory_id: number | null;
   name_display: string;
+  category_name_display: string | null;
+  subcategory_name_display: string | null;
+  quantity: number | null;
+  measure: string | null;
   wt_g: number | null;
+};
+
+type Category = {
+  id: number;
+  name: string;
+  name_ro: string | null;
+  name_display: string;
+};
+
+type Subcategory = {
+  id: number;
+  category_id: number;
+  name: string;
+  name_ro: string | null;
+  name_display: string;
 };
 
 type MealEntry = {
   food_id: number;
+  category_name: string;
+  subcategory_name: string;
   name: string;
   grams: number;
 };
@@ -44,6 +67,19 @@ type CalcResponse = {
   items: CalcItem[];
 };
 
+type CalcGroup = {
+  grams: number;
+  items: CalcItem[];
+};
+
+type NutrientTotals = {
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 const LANG_KEY = "app_lang";
 
@@ -51,16 +87,73 @@ function formatNumber(value: number): string {
   return value.toFixed(2);
 }
 
+function findMealEntry(
+  mealItems: MealEntry[],
+  foodId: number,
+): MealEntry | undefined {
+  // The calculation result only has food_id, so we look up display details from the selected meal items.
+  return mealItems.find((item) => item.food_id === foodId);
+}
+
+function groupCalcItemsByGrams(items: CalcItem[]): CalcGroup[] {
+  // Each group becomes one results table for foods calculated with the same grams value.
+  const groupMap = new Map<number, CalcGroup>();
+
+  for (const item of items) {
+    let group = groupMap.get(item.grams);
+
+    if (!group) {
+      group = {
+        grams: item.grams,
+        items: [],
+      };
+
+      groupMap.set(item.grams, group);
+    }
+
+    group.items.push(item);
+  }
+
+  return Array.from(groupMap.values()).sort(
+    (firstGroup, secondGroup) => firstGroup.grams - secondGroup.grams,
+  );
+}
+
+function sumCalcItems(items: CalcItem[]): NutrientTotals {
+  // Sum all calculated nutrients in one grams group.
+  return items.reduce(
+    (totals, item) => ({
+      kcal: totals.kcal + item.nutrients.kcal,
+      protein_g: totals.protein_g + item.nutrients.protein_g,
+      carbs_g: totals.carbs_g + item.nutrients.carbs_g,
+      fat_g: totals.fat_g + item.nutrients.fat_g,
+      fiber_g: totals.fiber_g + item.nutrients.fiber_g,
+    }),
+    {
+      kcal: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fat_g: 0,
+      fiber_g: 0,
+    },
+  );
+}
+
 export default function CalculatorPage() {
   const [lang, setLang] = useState<Lang>("en");
   const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<FoodSearchItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
+  const [selectedFoodId, setSelectedFoodId] = useState("");
   const [mealItems, setMealItems] = useState<MealEntry[]>([]);
   const [calcResult, setCalcResult] = useState<CalcResponse | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingCalc, setLoadingCalc] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const calcGroups = calcResult ? groupCalcItemsByGrams(calcResult.items) : [];
 
   useEffect(() => {
     const stored = window.localStorage.getItem(LANG_KEY);
@@ -73,16 +166,67 @@ export default function CalculatorPage() {
     window.localStorage.setItem(LANG_KEY, lang);
   }, [lang]);
 
+  useEffect(() => {
+    async function loadCategories() {
+      const response = await fetch(`${API_BASE}/api/categories?lang=${lang}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to load categories");
+      }
+
+      const data = (await response.json()) as Category[];
+      setCategories(data);
+    }
+
+    loadCategories().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+    });
+  }, [lang]);
+
+  useEffect(() => {
+    if (!selectedCategoryId) {
+      setSubcategories([]);
+      setSelectedSubcategoryId("");
+      return;
+    }
+
+    async function loadSubcategories() {
+      const response = await fetch(
+        `${API_BASE}/api/categories/${selectedCategoryId}/subcategories?lang=${lang}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load subcategories");
+      }
+
+      const data = (await response.json()) as Subcategory[];
+      setSubcategories(data);
+    }
+
+    loadSubcategories().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+    });
+  }, [selectedCategoryId, lang]);
+
   const searchUrl = useMemo(() => {
     const params = new URLSearchParams();
     params.set("lang", lang);
-    params.set("limit", "20");
+    params.set("limit", "5000");
     params.set("offset", "0");
-    if (searchQuery.trim()) {
-      params.set("search", searchQuery.trim());
+    if (searchInput.trim()) {
+      params.set("search", searchInput.trim());
+    }
+
+    if (selectedCategoryId) {
+      params.set("category_id", selectedCategoryId);
+    }
+    if (selectedSubcategoryId) {
+      params.set("subcategory_id", selectedSubcategoryId);
     }
     return `${API_BASE}/api/foods?${params.toString()}`;
-  }, [lang, searchQuery]);
+  }, [lang, searchInput, selectedCategoryId, selectedSubcategoryId]);
 
   useEffect(() => {
     setLoadingSearch(true);
@@ -112,6 +256,8 @@ export default function CalculatorPage() {
         ...current,
         {
           food_id: food.id,
+          category_name: food.category_name_display ?? "-",
+          subcategory_name: food.subcategory_name_display ?? "-",
           name: food.name_display,
           grams: 100,
         },
@@ -121,12 +267,16 @@ export default function CalculatorPage() {
 
   function updateGrams(foodId: number, grams: number) {
     setMealItems((current) =>
-      current.map((item) => (item.food_id === foodId ? { ...item, grams } : item)),
+      current.map((item) =>
+        item.food_id === foodId ? { ...item, grams } : item,
+      ),
     );
   }
 
   function removeMealItem(foodId: number) {
-    setMealItems((current) => current.filter((item) => item.food_id !== foodId));
+    setMealItems((current) =>
+      current.filter((item) => item.food_id !== foodId),
+    );
   }
 
   async function calculateMeal() {
@@ -172,82 +322,145 @@ export default function CalculatorPage() {
       <p>Compute totals by grams using wt_g as scaling base.</p>
 
       <section style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-        <button type="button" onClick={() => setLang("en")} disabled={lang === "en"}>
+        <button
+          type="button"
+          onClick={() => setLang("en")}
+          disabled={lang === "en"}
+        >
           EN
         </button>
-        <button type="button" onClick={() => setLang("ro")} disabled={lang === "ro"}>
+        <button
+          type="button"
+          onClick={() => setLang("ro")}
+          disabled={lang === "ro"}
+        >
           RO
         </button>
       </section>
 
       <section style={{ display: "grid", gap: 8, marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search foods..."
-            style={{ flex: 1, padding: 8 }}
-          />
-          <button type="button" onClick={() => setSearchQuery(searchInput)}>
-            Search
-          </button>
-        </div>
-
-        {loadingSearch && <p>Searching...</p>}
-        {!loadingSearch && (
-          <div style={{ display: "grid", gap: 6 }}>
-            {searchResults.map((food) => (
-              <div
-                key={food.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  border: "1px solid #ddd",
-                  padding: 8,
-                }}
-              >
-                <div>
-                  <strong>{food.name_display}</strong>
-                  <div>wt_g: {food.wt_g ?? "-"}</div>
-                </div>
-                <button type="button" onClick={() => addFood(food)}>
-                  Add
-                </button>
-              </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <select
+            value={selectedCategoryId}
+            onChange={(event) => {
+              setSelectedCategoryId(event.target.value);
+              setSelectedSubcategoryId("");
+            }}
+            style={{ padding: 8, minWidth: 240 }}
+          >
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={String(category.id)}>
+                {category.name_display}
+              </option>
             ))}
-          </div>
-        )}
+          </select>
+
+          <select
+            value={selectedSubcategoryId}
+            onChange={(event) => setSelectedSubcategoryId(event.target.value)}
+            style={{ padding: 8, minWidth: 240 }}
+            disabled={!selectedCategoryId}
+          >
+            <option value="">All foods</option>
+            {subcategories.map((subcategory) => (
+              <option key={subcategory.id} value={String(subcategory.id)}>
+                {subcategory.name_display}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedFoodId}
+            onChange={(event) => {
+              const foodId = event.target.value;
+              setSelectedFoodId(foodId);
+
+              const selectedFood = searchResults.find(
+                (food) => String(food.id) === foodId,
+              );
+
+              if (selectedFood) {
+                addFood(selectedFood);
+              }
+            }}
+            style={{ padding: 8, minWidth: 280 }}
+          >
+            <option value="">All food descriptions</option>
+            {searchResults.map((food) => (
+              <option key={food.id} value={String(food.id)}>
+                {food.name_display}
+              </option>
+            ))}
+          </select>
+        </div>
       </section>
 
       <section style={{ marginBottom: 16 }}>
         <h2>Meal Items</h2>
         {mealItems.length === 0 && <p>No foods selected yet.</p>}
-        <div style={{ display: "grid", gap: 8 }}>
-          {mealItems.map((item) => (
-            <div
-              key={item.food_id}
-              style={{ display: "flex", gap: 8, alignItems: "center", border: "1px solid #ddd", padding: 8 }}
-            >
-              <div style={{ flex: 1 }}>{item.name}</div>
-              <label>
-                grams:
-                <input
-                  type="number"
-                  value={item.grams}
-                  min={0.1}
-                  step={0.1}
-                  onChange={(event) =>
-                    updateGrams(item.food_id, Number(event.target.value))
-                  }
-                  style={{ marginLeft: 6, width: 100 }}
-                />
-              </label>
-              <button type="button" onClick={() => removeMealItem(item.food_id)}>
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
+        {mealItems.length > 0 && (
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                {[
+                  "Category",
+                  "Food",
+                  "Food Description",
+                  "Grams",
+                  "Remove",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    style={{
+                      border: "1px solid #ccc",
+                      padding: 8,
+                      textAlign: "left",
+                      backgroundColor: "#f4f4f4",
+                    }}
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {mealItems.map((item) => (
+                <tr key={item.food_id}>
+                  <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                    {item.category_name}
+                  </td>
+                  <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                    {item.subcategory_name}
+                  </td>
+                  <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                    {item.name}
+                  </td>
+                  <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                    <input
+                      type="number"
+                      value={item.grams}
+                      min={1}
+                      step={1}
+                      onChange={(event) =>
+                        updateGrams(item.food_id, Number(event.target.value))
+                      }
+                      style={{ width: 100 }}
+                    />
+                  </td>
+                  <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => removeMealItem(item.food_id)}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         <button
           type="button"
           onClick={calculateMeal}
@@ -268,33 +481,146 @@ export default function CalculatorPage() {
               Warning: some nutrients are missing, totals may be underestimated.
             </p>
           )}
-          <ul>
-            <li>Kcal: {formatNumber(calcResult.totals.kcal)}</li>
-            <li>Protein (g): {formatNumber(calcResult.totals.protein_g)}</li>
-            <li>Carbs (g): {formatNumber(calcResult.totals.carbs_g)}</li>
-            <li>Fat (g): {formatNumber(calcResult.totals.fat_g)}</li>
-            <li>Fiber (g): {formatNumber(calcResult.totals.fiber_g)}</li>
-          </ul>
+          {calcGroups.map((group) => {
+            const groupTotals = sumCalcItems(group.items);
 
-          <h3>Items</h3>
-          <div style={{ display: "grid", gap: 8 }}>
-            {calcResult.items.map((item) => (
-              <div key={item.food_id} style={{ border: "1px solid #ddd", padding: 8 }}>
-                <strong>{item.name}</strong> ({item.grams} g)
-                {item.error && <p style={{ color: "crimson" }}>{item.error}</p>}
-                {!item.error && (
-                  <ul>
-                    <li>factor: {item.factor?.toFixed(4)}</li>
-                    <li>kcal: {formatNumber(item.nutrients.kcal)}</li>
-                    <li>protein_g: {formatNumber(item.nutrients.protein_g)}</li>
-                    <li>carbs_g: {formatNumber(item.nutrients.carbs_g)}</li>
-                    <li>fat_g: {formatNumber(item.nutrients.fat_g)}</li>
-                    <li>fiber_g: {formatNumber(item.nutrients.fiber_g)}</li>
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
+            return (
+              <section key={group.grams} style={{ marginBottom: 16 }}>
+                <h3>Calculated for {formatNumber(group.grams)} g</h3>
+
+                <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                  <thead>
+                    <tr>
+                      {[
+                        "Category",
+                        "Food",
+                        "Food Description",
+                        "Grams",
+                        "Factor",
+                        "Kcal",
+                        "Protein (g)",
+                        "Carbs (g)",
+                        "Fat (g)",
+                        "Fiber (g)",
+                      ].map((header) => (
+                        <th
+                          key={header}
+                          style={{
+                            border: "1px solid #ccc",
+                            padding: 8,
+                            textAlign: "left",
+                            backgroundColor: "#f4f4f4",
+                          }}
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.items.map((item) => {
+                      const mealEntry = findMealEntry(mealItems, item.food_id);
+
+                      return (
+                        <tr key={item.food_id}>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {mealEntry?.category_name ?? "-"}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {mealEntry?.subcategory_name ?? "-"}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {item.name}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {formatNumber(item.grams)}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {item.factor === null
+                              ? "-"
+                              : item.factor.toFixed(4)}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {formatNumber(item.nutrients.kcal)}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {formatNumber(item.nutrients.protein_g)}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {formatNumber(item.nutrients.carbs_g)}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {formatNumber(item.nutrients.fat_g)}
+                          </td>
+                          <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                            {formatNumber(item.nutrients.fiber_g)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    <tr>
+                      <td
+                        colSpan={5}
+                        style={{
+                          border: "1px solid #ddd",
+                          padding: 8,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        TOTAL
+                      </td>
+                      <td
+                        style={{
+                          border: "1px solid #ddd",
+                          padding: 8,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {formatNumber(groupTotals.kcal)}
+                      </td>
+                      <td
+                        style={{
+                          border: "1px solid #ddd",
+                          padding: 8,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {formatNumber(groupTotals.protein_g)}
+                      </td>
+                      <td
+                        style={{
+                          border: "1px solid #ddd",
+                          padding: 8,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {formatNumber(groupTotals.carbs_g)}
+                      </td>
+                      <td
+                        style={{
+                          border: "1px solid #ddd",
+                          padding: 8,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {formatNumber(groupTotals.fat_g)}
+                      </td>
+                      <td
+                        style={{
+                          border: "1px solid #ddd",
+                          padding: 8,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {formatNumber(groupTotals.fiber_g)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </section>
+            );
+          })}
         </section>
       )}
     </main>

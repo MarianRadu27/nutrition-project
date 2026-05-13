@@ -170,6 +170,7 @@ function sortFoodsByName(items: Food[], direction: SortDirection): Food[] {
 }
 
 export default function FoodsPage() {
+  // Filter and UI state are kept separately so typing does not immediately refetch.
   const [lang, setLang] = useState<Lang>("en");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -189,6 +190,7 @@ export default function FoodsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Persisting language locally keeps Foods and Calculator in the same language.
     const stored = window.localStorage.getItem(LANG_KEY);
     if (stored === "en" || stored === "ro") {
       setLang(stored);
@@ -200,6 +202,7 @@ export default function FoodsPage() {
   }, [lang]);
 
   useEffect(() => {
+    // Categories depend on lang because the backend returns name_display.
     async function loadCategories() {
       const response = await fetch(`${API_BASE}/api/categories?lang=${lang}`);
       if (!response.ok) {
@@ -217,6 +220,7 @@ export default function FoodsPage() {
 
   useEffect(() => {
     if (!selectedCategoryId) {
+      // A Food group belongs to one Category, so clearing Category resets Food too.
       setSubcategories([]);
       setSelectedSubcategoryId("");
       return;
@@ -240,6 +244,7 @@ export default function FoodsPage() {
   }, [selectedCategoryId, lang]);
 
   const foodsUrl = useMemo(() => {
+    // useMemo keeps the fetch URL stable until one of its real inputs changes.
     const params = new URLSearchParams();
     params.set("lang", lang);
     params.set("limit", String(limit));
@@ -260,7 +265,7 @@ export default function FoodsPage() {
   const groupedFoods = groupFoodsByCategoryAndFood(sortedFoods);
 
   function toggleCategory(categoryKey: string) {
-    // Toggle one category section between collapsed and expanded.
+    // Store only open keys; default behavior is collapsed.
     setOpenCategoryKeys((currentKeys) =>
       currentKeys.includes(categoryKey)
         ? currentKeys.filter((key) => key !== categoryKey)
@@ -269,15 +274,16 @@ export default function FoodsPage() {
   }
 
   function toggleFood(foodKey: string) {
-    // Toggle one food section between collapsed and expanded.
+    // Food groups are opened independently from their parent Category rows.
     setOpenFoodKeys((currentKeys) =>
       currentKeys.includes(foodKey)
         ? currentKeys.filter((key) => key !== foodKey)
-      : [...currentKeys, foodKey],
+        : [...currentKeys, foodKey],
     );
   }
 
   useEffect(() => {
+    // Any filter change refetches the current food page.
     setLoading(true);
     setError(null);
 
@@ -543,7 +549,7 @@ export default function FoodsPage() {
 
                                     {showExtraNutrients &&
                                       EXTRA_NUTRIENT_COLUMNS.map((column) => (
-                                        <td key={column.label} style={{ border: "1px solid #ddd", padding: 8, backgroundColor: "#f3f3f3"}}>
+                                        <td key={column.label} style={{ border: "1px solid #ddd", padding: 8}}>
                                           {formatNumber(column.getValue(food))}
                                         </td>
                                       ))}

@@ -10,6 +10,7 @@ load_dotenv()
 
 
 def _env_str(name: str, default: str) -> str:
+    """Read a string env var while treating empty values as missing."""
     value = os.getenv(name)
     if value is None:
         return default
@@ -18,6 +19,7 @@ def _env_str(name: str, default: str) -> str:
 
 
 def _env_int(name: str, default: int) -> int:
+    """Read an integer env var and fall back safely when it is invalid."""
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -28,6 +30,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def get_db_config() -> dict[str, Any]:
+    """Build one shared MySQL connection config from environment variables."""
     return {
         "host": _env_str("DB_HOST", "127.0.0.1"),
         "port": _env_int("DB_PORT", 3307),
@@ -41,13 +44,16 @@ def get_db_config() -> dict[str, Any]:
 
 
 def get_connection() -> pymysql.connections.Connection:
+    """Open a new DB connection for one request/script operation."""
     return pymysql.connect(**get_db_config())
 
 
 def get_admin_token() -> str:
+    """Return the local admin token used by the add-food endpoint."""
     return _env_str("ADMIN_TOKEN", "change-me-local-admin-token")
 
 
 def get_frontend_origins() -> list[str]:
+    """CORS accepts one or more comma-separated frontend URLs."""
     raw = _env_str("FRONTEND_ORIGIN", "http://localhost:3000")
     return [origin.strip() for origin in raw.split(",") if origin.strip()]

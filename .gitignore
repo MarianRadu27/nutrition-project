@@ -5,10 +5,13 @@ frontend/out/
 
 # Python
 backend/.venv/
+__pycache__/
 backend/__pycache__/
 backend/**/*.pyc
 backend/**/*.pyo
 backend/data/*.xlsx
+backend/data/*.csv
+backend/scripts/*.xlsx
 
 # Env secrets
 .env

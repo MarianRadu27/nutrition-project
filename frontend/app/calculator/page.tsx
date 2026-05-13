@@ -140,6 +140,7 @@ function sumCalcItems(items: CalcItem[]): NutrientTotals {
 }
 
 export default function CalculatorPage() {
+  // Search state describes the picker; mealItems describes what the user selected.
   const [lang, setLang] = useState<Lang>("en");
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<FoodSearchItem[]>([]);
@@ -156,6 +157,7 @@ export default function CalculatorPage() {
   const calcGroups = calcResult ? groupCalcItemsByGrams(calcResult.items) : [];
 
   useEffect(() => {
+    // Reuse the same language preference as the foods page.
     const stored = window.localStorage.getItem(LANG_KEY);
     if (stored === "en" || stored === "ro") {
       setLang(stored);
@@ -167,6 +169,7 @@ export default function CalculatorPage() {
   }, [lang]);
 
   useEffect(() => {
+    // Category labels change when lang changes, so they are reloaded by language.
     async function loadCategories() {
       const response = await fetch(`${API_BASE}/api/categories?lang=${lang}`);
 
@@ -186,6 +189,7 @@ export default function CalculatorPage() {
 
   useEffect(() => {
     if (!selectedCategoryId) {
+      // Food groups are only meaningful inside a selected Category.
       setSubcategories([]);
       setSelectedSubcategoryId("");
       return;
@@ -211,6 +215,7 @@ export default function CalculatorPage() {
   }, [selectedCategoryId, lang]);
 
   const searchUrl = useMemo(() => {
+    // The food picker is /api/foods with filters; the backend handles search.
     const params = new URLSearchParams();
     params.set("lang", lang);
     params.set("limit", "5000");
@@ -229,6 +234,7 @@ export default function CalculatorPage() {
   }, [lang, searchInput, selectedCategoryId, selectedSubcategoryId]);
 
   useEffect(() => {
+    // Refetch the picker any time filters or search text change.
     setLoadingSearch(true);
     setError(null);
     fetch(searchUrl)
@@ -248,6 +254,7 @@ export default function CalculatorPage() {
 
   function addFood(food: FoodSearchItem) {
     setMealItems((current) => {
+      // Prevent duplicates; grams can be edited after selection.
       const exists = current.some((item) => item.food_id === food.id);
       if (exists) {
         return current;
@@ -266,6 +273,7 @@ export default function CalculatorPage() {
   }
 
   function updateGrams(foodId: number, grams: number) {
+    // Keep the selected food identity stable while changing only its grams.
     setMealItems((current) =>
       current.map((item) =>
         item.food_id === foodId ? { ...item, grams } : item,
@@ -290,6 +298,7 @@ export default function CalculatorPage() {
     setCalcResult(null);
 
     try {
+      // The backend does nutrient math so UI and API stay consistent.
       const response = await fetch(`${API_BASE}/api/calc/meal?lang=${lang}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

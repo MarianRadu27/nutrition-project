@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+// This token is for local development convenience; real deployments need stronger auth.
 const DEFAULT_ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? "";
 
 type AdminResponse = {
@@ -15,6 +16,7 @@ type AdminResponse = {
 };
 
 export default function AdminAddFoodPage() {
+  // The admin form allows either existing ids or new names for Category and Food.
   const [adminToken, setAdminToken] = useState(DEFAULT_ADMIN_TOKEN);
   const [categoryId, setCategoryId] = useState("");
   const [categoryName, setCategoryName] = useState("");
@@ -42,6 +44,7 @@ export default function AdminAddFoodPage() {
     setError(null);
     setResult(null);
 
+    // Empty optional strings become undefined/null so the backend can validate intent.
     const payload: Record<string, unknown> = {
       food_description: foodDescription,
       food_description_ro: foodDescriptionRo || undefined,
@@ -58,6 +61,7 @@ export default function AdminAddFoodPage() {
     if (categoryId) {
       payload.category_id = Number(categoryId);
     } else {
+      // If no existing category_id is provided, the backend upserts by name.
       payload.category_name = categoryName;
       payload.category_name_ro = categoryNameRo || undefined;
     }
@@ -65,12 +69,14 @@ export default function AdminAddFoodPage() {
     if (subcategoryId) {
       payload.subcategory_id = Number(subcategoryId);
     } else {
+      // Same pattern for Food groups, which are stored as subcategories in the DB.
       payload.subcategory_name = subcategoryName;
       payload.subcategory_name_ro = subcategoryNameRo || undefined;
     }
 
     try {
       const response = await fetch(`${API_BASE}/api/admin/foods`, {
+        // X-Admin-Token is checked by the FastAPI dependency on the admin endpoint.
         method: "POST",
         headers: {
           "Content-Type": "application/json",

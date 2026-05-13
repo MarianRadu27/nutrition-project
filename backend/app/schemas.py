@@ -8,6 +8,11 @@ Lang = Literal["en", "ro"]
 
 
 class CategoryOut(BaseModel):
+    """Category returned to the frontend.
+
+    name_display is already selected in the requested language by the repository.
+    """
+
     id: int
     name: str
     name_ro: str | None = None
@@ -15,6 +20,11 @@ class CategoryOut(BaseModel):
 
 
 class SubcategoryOut(BaseModel):
+    """Food group returned to the frontend.
+
+    In the UI this is called Food, while the database table is still subcategories.
+    """
+
     id: int
     category_id: int
     name: str
@@ -23,6 +33,8 @@ class SubcategoryOut(BaseModel):
 
 
 class FoodOut(BaseModel):
+    """Food description row with the nutrients needed by the foods table."""
+
     id: int
     da_code: int
     subcategory_id: int | None = None
@@ -62,8 +74,11 @@ class FoodOut(BaseModel):
     sele_ug: float | None = None
     category_name_display: str | None = None
     subcategory_name_display: str | None = None
+
 
 class FoodDetailOut(BaseModel):
+    """Detailed food payload used when the frontend needs every nutrient column."""
+
     id: int
     da_code: int
     subcategory_id: int | None = None
@@ -103,9 +118,11 @@ class FoodDetailOut(BaseModel):
     sele_ug: float | None = None
     category_name_display: str | None = None
     subcategory_name_display: str | None = None
-    
+
 
 class FoodsListResponse(BaseModel):
+    """Paginated response for /api/foods."""
+
     items: list[FoodOut]
     limit: int
     offset: int
@@ -113,11 +130,15 @@ class FoodsListResponse(BaseModel):
 
 
 class MealCalcItemIn(BaseModel):
+    """One user-selected food and the grams to calculate."""
+
     food_id: int = Field(gt=0)
     grams: float = Field(gt=0)
 
 
 class MealCalcRequest(BaseModel):
+    """Meal calculation request; it must contain at least one item."""
+
     items: list[MealCalcItemIn]
 
     @model_validator(mode="after")
@@ -128,6 +149,8 @@ class MealCalcRequest(BaseModel):
 
 
 class NutrientsOut(BaseModel):
+    """Small nutrient summary used by the meal calculator."""
+
     kcal: float
     protein_g: float
     carbs_g: float
@@ -136,6 +159,8 @@ class NutrientsOut(BaseModel):
 
 
 class MealCalcItemOut(BaseModel):
+    """Calculated nutrients for one selected meal item."""
+
     food_id: int
     name: str
     grams: float
@@ -146,12 +171,16 @@ class MealCalcItemOut(BaseModel):
 
 
 class MealCalcResponse(BaseModel):
+    """Meal calculation response including totals and per-item details."""
+
     totals: NutrientsOut
     incomplete_data: bool
     items: list[MealCalcItemOut]
 
 
 class AdminFoodCreateIn(BaseModel):
+    """Payload for manually adding one custom food in local admin tools."""
+
     category_id: int | None = None
     category_name: str | None = None
     category_name_ro: str | None = None
@@ -173,6 +202,7 @@ class AdminFoodCreateIn(BaseModel):
 
     @model_validator(mode="after")
     def validate_refs(self) -> "AdminFoodCreateIn":
+        """Require either an existing id or a new name for both hierarchy levels."""
         has_category_id = self.category_id is not None
         has_category_name = bool(self.category_name and self.category_name.strip())
         if not has_category_id and not has_category_name:

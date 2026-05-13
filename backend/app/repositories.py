@@ -8,12 +8,14 @@ CUSTOM_DA_CODE_START = 90_000_000
 
 
 def _display_expr(lang: Lang, ro_col: str, en_col: str) -> str:
+    """Choose Romanian text when requested, falling back to English if missing."""
     if lang == "ro":
         return f"COALESCE({ro_col}, {en_col})"
     return en_col
 
 
 def list_categories(cursor: Any, lang: Lang) -> list[dict[str, Any]]:
+    """Return top-level Category options for filters."""
     name_display_expr = _display_expr(lang, "name_ro", "name")
     sql = f"""
         SELECT
@@ -29,6 +31,10 @@ def list_categories(cursor: Any, lang: Lang) -> list[dict[str, Any]]:
 
 
 def list_subcategories(cursor: Any, category_id: int, lang: Lang) -> list[dict[str, Any]]:
+    """Return Food groups for one Category.
+
+    The DB name is subcategories, but the frontend labels this level as Food.
+    """
     name_display_expr = _display_expr(lang, "name_ro", "name")
     sql = f"""
         SELECT
@@ -55,10 +61,12 @@ def list_foods(
     limit: int,
     offset: int,
 ) -> tuple[list[dict[str, Any]], int]:
+    """Return filtered food description rows plus the total count for pagination."""
     food_display_expr = _display_expr(lang, "f.food_description_ro", "f.food_description")
     category_display_expr = _display_expr(lang, "c.name_ro", "c.name")
     subcategory_display_expr = _display_expr(lang, "s.name_ro", "s.name")
 
+    # Build WHERE pieces separately so optional filters can be combined safely.
     where_parts: list[str] = []
     params: list[Any] = []
 
@@ -148,6 +156,7 @@ def list_foods(
 def get_foods_for_calc(
     cursor: Any, food_ids: list[int], lang: Lang
 ) -> dict[int, dict[str, Any]]:
+    """Fetch only the nutrient columns needed by the meal calculator."""
     if not food_ids:
         return {}
 
@@ -172,7 +181,9 @@ def get_foods_for_calc(
     rows = cursor.fetchall()
     return {int(row["id"]): row for row in rows}
 
+
 def get_food_detail(cursor: Any, food_id: int, lang: Lang) -> dict[str, Any] | None:
+    """Return one food with all nutrient columns."""
     food_name_display = (
         "COALESCE(f.food_description_ro, f.food_description)"
         if lang == "ro"
@@ -239,7 +250,9 @@ def get_food_detail(cursor: Any, food_id: int, lang: Lang) -> dict[str, Any] | N
     cursor.execute(sql, (food_id,))
     return cursor.fetchone()
 
+
 def get_category_by_id(cursor: Any, category_id: int) -> dict[str, Any] | None:
+    """Look up a category before linking a manually-added food."""
     cursor.execute(
         """
         SELECT id, name, name_ro
@@ -252,6 +265,7 @@ def get_category_by_id(cursor: Any, category_id: int) -> dict[str, Any] | None:
 
 
 def get_subcategory_by_id(cursor: Any, subcategory_id: int) -> dict[str, Any] | None:
+    """Look up a Food group before linking a manually-added food."""
     cursor.execute(
         """
         SELECT id, category_id, name, name_ro
@@ -266,6 +280,7 @@ def get_subcategory_by_id(cursor: Any, subcategory_id: int) -> dict[str, Any] | 
 def upsert_category_by_name(
     cursor: Any, category_name: str, category_name_ro: str | None
 ) -> int:
+    """Create or reuse a category by name and return its id."""
     cursor.execute(
         """
         INSERT INTO categories (name, name_ro)
@@ -285,6 +300,7 @@ def upsert_subcategory_by_name(
     subcategory_name: str,
     subcategory_name_ro: str | None,
 ) -> int:
+    """Create or reuse a Food group within a category and return its id."""
     cursor.execute(
         """
         INSERT INTO subcategories (category_id, name, name_ro)
@@ -299,6 +315,7 @@ def upsert_subcategory_by_name(
 
 
 def get_next_custom_da_code(cursor: Any) -> int:
+    """Generate DA codes for manually-added foods in a separate high range."""
     cursor.execute(
         """
         SELECT MAX(da_code) AS max_da_code
@@ -321,6 +338,7 @@ def insert_custom_food(
     subcategory_id: int,
     payload: AdminFoodCreateIn,
 ) -> int:
+    """Insert one manually-added food with the base nutrient fields."""
     cursor.execute(
         """
         INSERT INTO foods (
@@ -358,6 +376,7 @@ def insert_custom_food(
 
 
 def get_food_by_id(cursor: Any, food_id: int, lang: Lang) -> dict[str, Any] | None:
+    """Return the created food in the same shape used by the frontend."""
     food_display_expr = _display_expr(lang, "f.food_description_ro", "f.food_description")
     category_display_expr = _display_expr(lang, "c.name_ro", "c.name")
     subcategory_display_expr = _display_expr(lang, "s.name_ro", "s.name")

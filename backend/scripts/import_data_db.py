@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""Import the main FoodsFinal Excel workbook into MySQL.
+
+The workbook uses visual hierarchy rows:
+- uppercase DA Code cells represent Category rows;
+- Food Description-only rows represent Food group rows;
+- rows with DA Code values represent Food Description rows.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +22,7 @@ import pandas as pd
 import pymysql
 
 TRACE_NUMERIC_VALUE = 0.0
+# Empty markers mean "unknown"; trace markers are stored as zero but still parsed.
 NULL_NUMERIC_TOKENS = {"", "-", "\u2013", "\u2014"}
 TRACE_NUMERIC_TOKENS = {"<1", "<.1", "<.01", "t", "tr", "trace"}
 UNICODE_FRACTIONS = {
@@ -38,6 +47,7 @@ UNICODE_FRACTIONS = {
 }
 
 NUMERIC_COLUMNS = [
+    # Column names here match the DB schema, not the Excel display labels.
     "wt_g",
     "h2o_g",
     "ener_kcal",
@@ -78,8 +88,9 @@ FOOD_COLUMNS = [
 ]
 
 HEADER_ALIAS_TO_DB = {
+    # Excel headers are normalized before lookup, so "DA + Code" becomes "dacode".
     "dacode": "da_code",
-     "fooddescription": "food_description",
+    "fooddescription": "food_description",
     "ownsubcategory": "own_subcategory",
     "isownsubcategory": "own_subcategory",
     "quantity": "quantity",
@@ -141,6 +152,7 @@ class ImportStats:
 
 
 def normalize_space(value: str) -> str:
+    """Collapse repeated whitespace from Excel cells."""
     return re.sub(r"\s+", " ", value.strip())
 
 
@@ -152,6 +164,7 @@ def normalize_header(value: Any) -> str:
 
 
 def simplify_header(value: Any) -> str:
+    """Make messy Excel headers stable enough to map to DB columns."""
     normalized = normalize_header(value)
     return re.sub(r"[^a-z0-9]+", "", normalized)
 
@@ -188,6 +201,7 @@ def clean_bool(value: Any) -> bool:
 
 
 def parse_da_code(value: Any) -> int | None:
+    """Return an integer DA code only for real food rows."""
     if is_blank(value):
         return None
     if isinstance(value, bool):
@@ -211,6 +225,7 @@ def parse_da_code(value: Any) -> int | None:
 
 
 def clean_numeric(value: Any) -> float | None:
+    """Normalize numeric nutrient cells while preserving unknown values as NULL."""
     if is_blank(value):
         return None
     if isinstance(value, bool):
@@ -274,6 +289,7 @@ def parse_fractional_number(text: str) -> float | None:
 
 
 def clean_quantity(value: Any) -> float | None:
+    """Parse serving quantities, including fractional text values."""
     if is_blank(value):
         return None
     if isinstance(value, bool):
@@ -294,6 +310,7 @@ def clean_quantity(value: Any) -> float | None:
 
 
 def mostly_uppercase(text: str) -> bool:
+    """Detect category headings, which are uppercase in the source workbook."""
     letters = [char for char in text if char.isalpha()]
     if len(letters) < 3:
         return False
@@ -304,6 +321,7 @@ def mostly_uppercase(text: str) -> bool:
 def heading_has_mostly_empty_nutrients(
     row: pd.Series, column_lookup: dict[str, Any], nutrient_columns_present: list[str]
 ) -> bool:
+    """Protect against treating a real food row as a heading."""
     if not nutrient_columns_present:
         return True
     non_empty = 0
@@ -361,6 +379,7 @@ def row_is_totally_empty(row: pd.Series) -> bool:
 def upsert_category(
     cursor: pymysql.cursors.Cursor, category_name: str, stats: ImportStats
 ) -> int:
+    """Create or reuse a Category and return its id."""
     sql = """
         INSERT INTO categories (name)
         VALUES (%s)
@@ -388,6 +407,7 @@ def upsert_subcategory(
     subcategory_name: str,
     stats: ImportStats,
 ) -> int:
+    """Create or reuse a Food group inside one Category."""
     sql = """
         INSERT INTO subcategories (category_id, name)
         VALUES (%s, %s)
@@ -418,9 +438,11 @@ def upsert_subcategory(
 def upsert_food(
     cursor: pymysql.cursors.Cursor, row_data: dict[str, Any], stats: ImportStats
 ) -> None:
+    """Insert a food or update the existing row with the same DA code."""
     insert_columns = ", ".join(FOOD_COLUMNS)
     placeholders = ", ".join(["%s"] * len(FOOD_COLUMNS))
     update_columns = [col for col in FOOD_COLUMNS if col != "da_code"]
+    # COALESCE prevents blank Excel cells from deleting useful DB values.
     update_assignments = ", ".join(
         [f"{col} = COALESCE(new.{col}, foods.{col})" for col in update_columns]
         + ["updated_at = CURRENT_TIMESTAMP"]
@@ -441,6 +463,7 @@ def upsert_food(
 
 
 def resolve_excel_path(excel_arg: str) -> Path:
+    """Resolve Excel paths relative to this script so commands work from project root."""
     path = Path(excel_arg)
     if path.is_absolute():
         return path
@@ -492,6 +515,7 @@ def process_sheet(
     stats: ImportStats,
     args: argparse.Namespace,
 ) -> bool:
+    """Process one Excel sheet while keeping the current category/food context."""
     column_lookup = build_column_lookup(
         columns=list(dataframe.columns), stats=stats, sheet_name=sheet_name, verbose=args.verbose
     )
@@ -499,6 +523,7 @@ def process_sheet(
         col for col in NUMERIC_COLUMNS if col in column_lookup
     ]
 
+    # Food rows inherit these ids from the most recent heading rows above them.
     current_category_id: int | None = None
     current_category_name: str | None = None
     current_subcategory_id: int | None = None
@@ -530,6 +555,7 @@ def process_sheet(
                 )
                 continue
 
+            # Some bold source rows are both a food and their own Food group.
             is_own_subcategory = (
                 clean_bool(row[column_lookup["own_subcategory"]])
                 if "own_subcategory" in column_lookup
@@ -591,6 +617,7 @@ def process_sheet(
             upsert_food(cursor, food_row, stats)
             continue
 
+        # Rows without DA codes can still change the current hierarchy context.
         da_text = clean_text(da_raw)
         is_category_heading = bool(da_text and mostly_uppercase(da_text))
         is_subcategory_heading = bool(description)
@@ -641,6 +668,7 @@ def process_sheet(
 
 
 def main() -> int:
+    """CLI entry point. Defaults to dry-run until --commit is provided."""
     args = parse_arguments()
     excel_path = resolve_excel_path(args.excel)
     if not excel_path.exists():

@@ -8,6 +8,8 @@ from typing import Any
 from openpyxl import load_workbook
 
 
+# This helper prepares the explicit own_subcategory flag used by import_data_db.py.
+# It reads Excel formatting once, then stores the result as normal TRUE/FALSE data.
 HEADER_ALIASES = {
     "dacode": "da_code",
     "dacodecode": "da_code",
@@ -105,6 +107,7 @@ def mark_workbook(input_path: Path, output_path: Path, sheet_name: str | None) -
             continue
 
         food_rows += 1
+        # Either bold cell is enough because old workbooks were not perfectly consistent.
         is_bold_food = bool(da_code_cell.font.bold or description_cell.font.bold)
         marker_cell.value = is_bold_food
 

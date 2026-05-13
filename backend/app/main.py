@@ -9,6 +9,7 @@ from pymysql.connections import Connection
 from app import db, repositories, schemas
 
 BASE_NUTRIENTS = [
+    # Internal DB column -> public API field used by the calculator.
     ("ener_kcal", "kcal"),
     ("prot_g", "protein_g"),
     ("carbo_g", "carbs_g"),
@@ -18,16 +19,19 @@ BASE_NUTRIENTS = [
 
 
 def _as_float(value: Any) -> float:
+    """Convert nullable DB values to numbers for calculation."""
     if value is None:
         return 0.0
     return float(value)
 
 
 def _rounded_nutrients(payload: dict[str, float]) -> dict[str, float]:
+    """Keep API responses readable without losing too much precision."""
     return {key: round(value, 4) for key, value in payload.items()}
 
 
 def get_db_connection() -> Iterator[Connection]:
+    """FastAPI dependency that opens and closes one DB connection per request."""
     connection = db.get_connection()
     try:
         yield connection
@@ -38,6 +42,7 @@ def get_db_connection() -> Iterator[Connection]:
 def require_admin_token(
     x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
 ) -> None:
+    """Protect local admin endpoints with a simple shared token."""
     expected = db.get_admin_token()
     if not x_admin_token or x_admin_token != expected:
         raise HTTPException(
@@ -61,6 +66,7 @@ def get_categories(
     lang: schemas.Lang = Query(default="en"),
     connection: Connection = Depends(get_db_connection),
 ) -> list[dict[str, Any]]:
+    """List all Category values in the requested display language."""
     with connection.cursor() as cursor:
         return repositories.list_categories(cursor, lang)
 
@@ -74,6 +80,7 @@ def get_subcategories(
     lang: schemas.Lang = Query(default="en"),
     connection: Connection = Depends(get_db_connection),
 ) -> list[dict[str, Any]]:
+    """List Food groups inside one Category."""
     with connection.cursor() as cursor:
         return repositories.list_subcategories(cursor, category_id, lang)
 
@@ -84,10 +91,11 @@ def get_foods(
     category_id: int | None = Query(default=None),
     subcategory_id: int | None = Query(default=None),
     lang: schemas.Lang = Query(default="en"),
-    limit: int = Query(default=all, ge=1, le=5000),
+    limit: int = Query(default=5000, ge=1, le=5000),
     offset: int = Query(default=0, ge=0),
     connection: Connection = Depends(get_db_connection),
 ) -> schemas.FoodsListResponse:
+    """Return Food Description rows filtered by search/category/food group."""
     with connection.cursor() as cursor:
         rows, total = repositories.list_foods(
             cursor,
@@ -100,12 +108,14 @@ def get_foods(
         )
     return schemas.FoodsListResponse(items=rows, limit=limit, offset=offset, count=total)
 
+
 @app.get("/api/foods/{food_id}", response_model=schemas.FoodDetailOut)
 def get_food_detail(
     food_id: int,
     lang: schemas.Lang = Query(default="en"),
     connection: Connection = Depends(get_db_connection),
 ) -> schemas.FoodDetailOut:
+    """Return one food with all stored nutrient values."""
     with connection.cursor() as cursor:
         food = repositories.get_food_detail(cursor, food_id, lang)
 
@@ -116,6 +126,7 @@ def get_food_detail(
         )
 
     return schemas.FoodDetailOut(**food)
+
 
 @app.post("/api/calc/meal", response_model=schemas.MealCalcResponse)
 def calculate_meal(
@@ -237,6 +248,7 @@ def create_food_admin(
     payload: schemas.AdminFoodCreateIn,
     connection: Connection = Depends(get_db_connection),
 ) -> schemas.AdminFoodResponse:
+    """Create one custom food and link it to an existing or new hierarchy path."""
     try:
         with connection.cursor() as cursor:
             category_id: int | None = None

@@ -463,10 +463,13 @@ def upsert_food(
 
 
 def resolve_excel_path(excel_arg: str) -> Path:
-    """Resolve Excel paths relative to this script so commands work from project root."""
+    """Resolve Excel paths from the current folder first, then from this script."""
     path = Path(excel_arg)
     if path.is_absolute():
         return path
+    cwd_path = (Path.cwd() / path).resolve()
+    if cwd_path.exists():
+        return cwd_path
     script_dir = Path(__file__).resolve().parent
     return (script_dir / path).resolve()
 

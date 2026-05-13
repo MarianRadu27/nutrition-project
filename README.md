@@ -1,20 +1,21 @@
 # Meal Nutrition Calculator
 
-A full-stack nutrition web application built with **FastAPI**, **MySQL** and **Next.js**.
+A full-stack nutrition application built with **FastAPI**, **MySQL**, and **Next.js**.
 
-The application allows users to search food items, calculate nutritional values for meals and manage food data through an admin interface.
+The app lets users browse foods, filter by category and food group, calculate meal nutrition from grams, add new foods from an admin page, and work with Romanian translations for food data.
 
-## Overview
+## Main Features
 
-This project is a practical full-stack application focused on nutrition data management and meal nutrition calculation.
-
-The main goal is to provide a simple and reliable way to:
-
-- search foods from a MySQL database;
-- calculate nutrition values based on selected foods and quantities;
-- manage food entries from an admin page;
-- expose backend functionality through a FastAPI REST API;
-- display the application through a Next.js frontend.
+- Browse foods from a MySQL database.
+- Filter by category and food group.
+- Expand and collapse grouped food rows.
+- Show or hide extra nutrient columns.
+- Sort and limit food results.
+- Calculate meal nutrition totals from selected foods and grams.
+- Add foods from an admin page.
+- Import food data from Excel.
+- Mark foods that should become their own food group with `own_subcategory`.
+- Export, review, import, and apply Romanian translations.
 
 ## Tech Stack
 
@@ -22,8 +23,9 @@ The main goal is to provide a simple and reliable way to:
 
 - Python
 - FastAPI
-- MySQL
 - Pydantic
+- PyMySQL
+- MySQL
 - Uvicorn
 
 ### Frontend
@@ -36,145 +38,133 @@ The main goal is to provide a simple and reliable way to:
 
 - Docker Compose
 - MySQL container
+- Adminer container
 
 ## Project Structure
 
 ```text
 nutrition-project/
-│
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── db.py
-│   │   ├── repositories.py
-│   │   ├── schemas.py
-│   │   └── __init__.py
-│   │
-│   ├── migrations/
-│   │   └── 001_add_ro_columns.sql
-│   │
-│   ├── scripts/
-│   │   ├── import_tabel_alim.py
-│   │   └── translation/
-│   │       ├── glossary_ro.csv
-│   │       └── translate_foods_step1.py
-│   │
-│   ├── .env.example
-│   ├── requirements.txt
-│   └── requirements-freeze.txt
-│
-├── frontend/
-│   ├── app/
-│   │   ├── admin/
-│   │   │   └── add-food/
-│   │   │       └── page.tsx
-│   │   ├── calculator/
-│   │   │   └── page.tsx
-│   │   ├── foods/
-│   │   │   └── page.tsx
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   │
-│   ├── .env.local.example
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── tsconfig.json
-│   └── next-env.d.ts
-│
-├── infra/
-│   └── docker-compose.yml
-│
-├── .gitignore
-└── README.md
+|
+|-- backend/
+|   |-- app/
+|   |   |-- db.py
+|   |   |-- main.py
+|   |   |-- repositories.py
+|   |   |-- schemas.py
+|   |
+|   |-- data/
+|   |   |-- FoodsFinal_sample.xlsx
+|   |
+|   |-- migrations/
+|   |   |-- 001_add_ro_columns.sql
+|   |
+|   |-- scripts/
+|   |   |-- import_data_db.py
+|   |   |-- mark_own_subcategories.py
+|   |   |-- translation/
+|   |       |-- apply_translations_to_foods_final.py
+|   |       |-- export_chatgpt_batch.py
+|   |       |-- export_translation_review.py
+|   |       |-- import_chatgpt_batch.py
+|   |       |-- import_translation_review_db.py
+|   |
+|   |-- .env.example
+|   |-- requirements.txt
+|
+|-- frontend/
+|   |-- app/
+|   |   |-- admin/add-food/page.tsx
+|   |   |-- calculator/page.tsx
+|   |   |-- foods/page.tsx
+|   |   |-- layout.tsx
+|   |   |-- page.tsx
+|   |
+|   |-- .env.local.example
+|   |-- package.json
+|
+|-- infra/
+|   |-- docker-compose.yml
+|
+|-- .gitignore
+|-- README.md
 ```
 
-## Features
+## Sample Data
 
-### Food Search
+The repository includes a small public sample file:
 
-Users can search for food items stored in the MySQL database.
+```text
+backend/data/FoodsFinal_sample.xlsx
+```
 
-### Meal Nutrition Calculator
+This file is intentionally small so other people can test the project without having access to the full private dataset.
 
-Users can select multiple foods and enter quantities in grams.
+The real working files, such as the full `FoodsFinal.xlsx`, generated translation review files, and CSV batches, are ignored by Git.
 
-The backend calculates nutritional totals for the selected meal items.
+## Database Setup
 
-### Admin Food Management
+Start MySQL and Adminer from the project root:
 
-The frontend includes an admin page for adding food items.
+```powershell
+docker compose -f infra/docker-compose.yml up -d
+```
 
-### Romanian Translation Support
+Default local database settings:
 
-The backend contains scripts and glossary files used for translating food descriptions into Romanian.
+```text
+host:     127.0.0.1
+port:     3307
+database: nutrition
+user:     nutrition
+password: nutritionpass
+```
 
-### Database Migration Support
+Adminer runs at:
 
-The project includes SQL migration files for database updates.
+```text
+http://localhost:8080
+```
 
 ## Backend Setup
 
-### 1. Go to the backend folder
+Go to the backend folder:
 
-```bash
+```powershell
 cd backend
 ```
 
-### 2. Create a virtual environment
+Create and activate a virtual environment:
 
-On Windows:
-
-```bash
+```powershell
 python -m venv .venv
-```
-
-### 3. Activate the virtual environment
-
-On Windows PowerShell:
-
-```bash
 .\.venv\Scripts\Activate.ps1
 ```
 
-On Windows Command Prompt:
+Install dependencies:
 
-```bash
-.\.venv\Scripts\activate.bat
-```
-
-### 4. Install dependencies
-
-```bash
+```powershell
 pip install -r requirements.txt
 ```
 
-### 5. Configure environment variables
+Create the local backend environment file:
 
-Create a `.env` file inside the `backend` folder using `.env.example` as a reference.
-
-Example:
-
-```bash
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
-On Windows, the file can also be copied manually.
+Run the backend:
 
-Make sure the database connection values match your MySQL setup.
-
-### 6. Run the backend server
-
-```bash
+```powershell
 uvicorn app.main:app --reload
 ```
 
-The backend should run at:
+Backend URL:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-FastAPI interactive documentation should be available at:
+FastAPI docs:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -182,228 +172,243 @@ http://127.0.0.1:8000/docs
 
 ## Frontend Setup
 
-### 1. Go to the frontend folder
+Go to the frontend folder:
 
-```bash
+```powershell
 cd frontend
 ```
 
-### 2. Install dependencies
+Install dependencies:
 
-```bash
+```powershell
 npm install
 ```
 
-### 3. Configure environment variables
+Create the local frontend environment file:
 
-Create a `.env.local` file using `.env.local.example` as a reference.
-
-Example:
-
-```bash
-cp .env.local.example .env.local
+```powershell
+Copy-Item .env.local.example .env.local
 ```
 
-Make sure the frontend API URL points to the backend server.
+Run the frontend:
 
-Example:
-
-```env
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-```
-
-### 4. Run the frontend development server
-
-```bash
+```powershell
 npm run dev
 ```
 
-The frontend should run at:
+Frontend URL:
 
 ```text
 http://localhost:3000
 ```
 
-## Database Setup
+## Import The Sample Data
 
-The project includes a Docker Compose configuration inside the `infra` folder.
+Make sure the database container is running first.
 
-From the project root, run:
+From the project root, run a dry-run import:
 
-```bash
-docker compose -f infra/docker-compose.yml up -d
+```powershell
+python backend\scripts\import_data_db.py --excel backend\data\FoodsFinal_sample.xlsx --verbose
 ```
 
-This starts the MySQL database container.
+Dry-run means the script parses the Excel file and tests the SQL work, but rolls everything back at the end.
 
-After the database is running, make sure the backend `.env` file contains the correct database connection details.
+If the dry-run looks correct, commit the sample data into MySQL:
 
-## Useful Commands
-
-### Run backend
-
-```bash
-cd backend
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
+```powershell
+python backend\scripts\import_data_db.py --excel backend\data\FoodsFinal_sample.xlsx --commit
 ```
 
-### Run frontend
+The full local dataset can be imported the same way by changing the Excel path:
 
-```bash
-cd frontend
-npm run dev
+```powershell
+python backend\scripts\import_data_db.py --excel backend\data\FoodsFinal.xlsx --commit
 ```
 
-### Start database
+## Excel Import Notes
 
-```bash
-docker compose -f infra/docker-compose.yml up -d
-```
-
-### Stop database
-
-```bash
-docker compose -f infra/docker-compose.yml down
-```
-
-## API Documentation
-
-When the backend is running, FastAPI automatically provides interactive API documentation at:
+The import script reads the spreadsheet hierarchy as:
 
 ```text
-http://127.0.0.1:8000/docs
+Category -> Food group -> Food description
 ```
 
-This can be used to inspect and test the available API endpoints.
+In the database, these map to:
 
-## Current Application Pages
+```text
+categories.name
+subcategories.name
+foods.food_description
+```
 
-The frontend currently includes:
+If a food row should become its own food group, the Excel file can use:
+
+```text
+own_subcategory = TRUE
+```
+
+The helper script below can mark this automatically from bold Excel rows:
+
+```powershell
+python backend\scripts\mark_own_subcategories.py --input backend\data\FoodsFinal.xlsx --output backend\data\FoodsFinal_marked.xlsx
+```
+
+## Romanian Translation Workflow
+
+The project supports Romanian text columns:
+
+```text
+categories.name_ro
+subcategories.name_ro
+foods.food_description_ro
+```
+
+The migration file is:
+
+```text
+backend/migrations/001_add_ro_columns.sql
+```
+
+Typical translation workflow:
+
+```powershell
+python backend\scripts\translation\export_translation_review.py
+```
+
+Export a CSV batch for ChatGPT/manual translation:
+
+```powershell
+python backend\scripts\translation\export_chatgpt_batch.py --sheet food_descriptions --limit 1000 --output backend\data\food_descriptions_ro_batch.csv
+```
+
+Import the translated CSV back into the review workbook:
+
+```powershell
+python backend\scripts\translation\import_chatgpt_batch.py --batch backend\data\food_descriptions_ro_batch.csv --output backend\data\translation_review_with_suggestions.xlsx --approve
+```
+
+Import approved translations into the database:
+
+```powershell
+python backend\scripts\translation\import_translation_review_db.py --input backend\data\translation_review_with_suggestions.xlsx --statuses approved needs_review --commit
+```
+
+Apply translations back to the Excel data file:
+
+```powershell
+python backend\scripts\translation\apply_translations_to_foods_final.py --review backend\data\translation_review_with_suggestions.xlsx --input backend\data\FoodsFinal.xlsx --output backend\data\FoodsFinal_with_ro.xlsx
+```
+
+## Application Pages
 
 ```text
 /
 ```
 
-Main application page.
+Home page.
 
 ```text
 /foods
 ```
 
-Food search page.
+Food browser page.
 
 ```text
 /calculator
 ```
 
-Meal nutrition calculator page.
+Meal nutrition calculator.
 
 ```text
 /admin/add-food
 ```
 
-Admin page for adding new food items.
-
-## Data Import and Translation Scripts
-
-The backend includes utility scripts for working with food data.
-
-```text
-backend/scripts/import_tabel_alim.py
-```
-
-Used for importing food data into the database.
-
-```text
-backend/scripts/translation/translate_foods_step1.py
-```
-
-Used as part of the Romanian translation workflow.
-
-```text
-backend/scripts/translation/glossary_ro.csv
-```
-
-Glossary file used for Romanian nutrition-related translations.
+Admin page for adding a food item.
 
 ## Environment Files
 
-This project uses example environment files:
+Example environment files are committed:
 
 ```text
 backend/.env.example
 frontend/.env.local.example
 ```
 
-Actual environment files are ignored by Git:
+Real local environment files are ignored:
 
 ```text
 backend/.env
 frontend/.env.local
 ```
 
-This prevents sensitive information such as database credentials or local configuration values from being committed to the repository.
+This keeps database credentials, admin tokens, and local machine settings out of Git.
 
 ## Git Ignore Policy
 
-The repository ignores files and folders that should not be committed, such as:
+The repository ignores:
 
-- Python virtual environments;
-- Node.js dependencies;
-- local environment files;
-- temporary build files;
-- local operating system files;
-- temporary spreadsheet files.
+- Python virtual environments.
+- Node dependencies.
+- Next.js build output.
+- local environment files.
+- private Excel and CSV data files.
+- generated translation workbooks.
+- Python cache files.
 
-Examples:
+The sample dataset is explicitly allowed:
 
 ```text
-backend/.venv/
-frontend/node_modules/
-frontend/.next/
-backend/.env
-frontend/.env.local
+!backend/data/FoodsFinal_sample.xlsx
+```
+
+## Useful Commands
+
+Start database:
+
+```powershell
+docker compose -f infra/docker-compose.yml up -d
+```
+
+Stop database:
+
+```powershell
+docker compose -f infra/docker-compose.yml down
+```
+
+Run backend:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload
+```
+
+Run frontend:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Build frontend:
+
+```powershell
+cd frontend
+npm run build
 ```
 
 ## Project Status
 
-This project is currently in development.
+This project is in active development.
 
 Current focus:
 
-- improving the accuracy of nutrition calculations;
-- cleaning and validating food data;
-- stabilizing the backend API;
-- improving frontend usability;
-- preparing the project for public presentation on GitHub and LinkedIn.
-
-## Future Improvements
-
-Planned or possible improvements:
-
-- improve validation for meal calculation inputs;
-- handle missing or incomplete food weight data;
-- add better error messages in the frontend;
-- improve admin food management;
-- add user-friendly loading and empty states;
-- add automated tests for nutrition calculations;
-- improve Romanian food descriptions;
-- add deployment configuration;
-- improve UI design and responsiveness.
-
-## Why This Project Matters
-
-This project demonstrates practical full-stack development skills, including:
-
-- backend API development;
-- database connection and MySQL usage;
-- frontend development with Next.js;
-- environment configuration;
-- Docker-based infrastructure;
-- data import and processing;
-- nutrition calculation logic;
-- project organization and Git workflow.
+- improving food data quality;
+- keeping the import workflow reliable;
+- improving Romanian translations;
+- improving the calculator and food browser UX;
+- preparing the project for public GitHub presentation.
 
 ## Author
 

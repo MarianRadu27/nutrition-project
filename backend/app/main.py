@@ -51,7 +51,7 @@ def require_admin_token(
         )
 
 
-app = FastAPI(title="Nutrition API", version="0.1.0")
+app = FastAPI(title="Nutrition Data Platform API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=db.get_frontend_origins(),

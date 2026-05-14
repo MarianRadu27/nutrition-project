@@ -21,6 +21,7 @@ frontend/.env.local
 
 # Temporary work files
 *.xlsx
+temp/
 
 # Public sample data kept in Git so other people can try the project.
 !backend/data/FoodsFinal_sample.xlsx

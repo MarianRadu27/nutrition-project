@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Nutrition App",
-  description: "Foods browser, meal calculator, and admin add-food",
+  title: "Nutrition Data Platform",
+  description: "Food data browser, meal calculator, and nutrition data tools",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

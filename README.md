@@ -1,4 +1,4 @@
-# Nutrition Data Platform
+# Meal Nutrition Calculator
 
 A full-stack nutrition application built with **FastAPI**, **MySQL**, and **Next.js**.
 
@@ -43,7 +43,7 @@ The app lets users browse foods, filter by category and food group, calculate me
 ## Project Structure
 
 ```text
-nutrition-data-platform/
+nutrition-project/
 |
 |-- backend/
 |   |-- app/
@@ -98,8 +98,6 @@ backend/data/FoodsFinal_sample.xlsx
 ```
 
 This file is intentionally small so other people can test the project without having access to the full private dataset.
-
-The sample follows the same structure as the current local food table. That table is based on an Appendix H food composition table compiled from USDA Standard Release data and manufacturers' data, so it is serving-based rather than a direct modern USDA FoodData Central export.
 
 The real working files, such as the full `FoodsFinal.xlsx`, generated translation review files, and CSV batches, are ignored by Git.
 
@@ -255,14 +253,6 @@ The helper script below can mark this automatically from bold Excel rows:
 ```powershell
 python backend\scripts\mark_own_subcategories.py --input backend\data\FoodsFinal.xlsx --output backend\data\FoodsFinal_marked.xlsx
 ```
-
-The current import file is based on a serving-style source table:
-
-```text
-Quantity + Measure + Wt (g) + nutrient values
-```
-
-The calculator uses `Wt (g)` to scale nutrient values to the grams entered by the user.
 
 ## Romanian Translation Workflow
 
@@ -422,12 +412,12 @@ Current focus:
 
 ## Author
 
-Created by **Marian**.
+Created by **Marian Radu**.
 
 GitHub:
 
 ```text
-https://github.com/MarianRadu27/nutrition-data-platform
+https://github.com/MarianRadu27/nutrition-project
 ```
 
 LinkedIn:

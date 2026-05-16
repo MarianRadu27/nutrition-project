@@ -266,7 +266,7 @@ This project should help develop practical skills in:
 - documenting technical decisions;
 - using Git and GitHub professionally.
 
-## Suggested Next Steps
+## Possible Next Steps
 
 1. Add `temp/` to `.gitignore` so large local data files are not committed by accident.
 2. Profile the NEVO dataset first because it has clean CSV files and a clear nutrient dictionary.

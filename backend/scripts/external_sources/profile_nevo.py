@@ -25,6 +25,12 @@ ENGLISH_NAME_COLUMN = "Engelse naam/Food name"
 QUANTITY_COLUMN = "Hoeveelheid/Quantity"
 FIRST_NUTRIENT_COLUMN = "ENERCJ (kJ)"
 FIBER_COLUMN = "FIBT (g)"
+NUTRIENT_CODE_COLUMN = "Nutrient-code"
+COMPONENT_COLUMN = "Component"
+VALUE_COLUMN = "Gehalte/Value"
+UNIT_COLUMN = "Eenheid/Unit"
+SOURCE_CODE_COLUMN = "Broncode/Source code"
+REFERENCE_COLUMN = "Referentie/Reference"
 
 MAIN_NUTRIENTS = [
     "ENERCC (kcal)",
@@ -230,9 +236,9 @@ def print_nutrient_dictionary_profile(
     print("First 10 nutrient definitions:")
     for row in nutrient_dictionary[:10]:
         print(
-            f"- {row['Nutrient-code']} | "
-            f"{row['Component']} | "
-            f"{row['Eenheid/Unit']}"
+            f"- {row[NUTRIENT_CODE_COLUMN]} | "
+            f"{row[COMPONENT_COLUMN]} | "
+            f"{row[UNIT_COLUMN]}"
         )
 
 
@@ -244,9 +250,9 @@ def nutrient_code_from_column(column: str) -> str:
 def get_dictionary_codes(nutrient_dictionary: list[dict[str, str]]) -> set[str]:
     """Return unique nutrient codes from the nutrient dictionary."""
     return {
-        row["Nutrient-code"].strip()
+        row[NUTRIENT_CODE_COLUMN].strip()
         for row in nutrient_dictionary
-        if row["Nutrient-code"].strip()
+        if row[NUTRIENT_CODE_COLUMN].strip()
     }
 
 
@@ -256,7 +262,7 @@ def find_duplicate_nutrient_code_counts(
     """Return nutrient dictionary codes that appear more than once."""
     code_counts: dict[str, int] = {}
     for row in nutrient_dictionary:
-        code = row["Nutrient-code"].strip()
+        code = row[NUTRIENT_CODE_COLUMN].strip()
         code_counts[code] = code_counts.get(code, 0) + 1
 
     return {code: count for code, count in code_counts.items() if count > 1}
@@ -289,6 +295,7 @@ def print_nutrient_code_comparison(
     print(f"Dictionary codes not in main file: {len(dictionary_not_in_main)}")
     for code in dictionary_not_in_main[:20]:
         print(f"- {code}")
+
 
 def print_details_file_profile(
     path: Path,
@@ -343,9 +350,9 @@ def print_details_nutrient_code_comparison(
 ) -> None:
     """Check whether every nutrient code in Details exists in the dictionary."""
     details_nutrient_codes = {
-        row["Nutrient-code"].strip()
+        row[NUTRIENT_CODE_COLUMN].strip()
         for row in details_rows
-        if row["Nutrient-code"].strip()
+        if row[NUTRIENT_CODE_COLUMN].strip()
     }
 
     missing_from_dictionary = sorted(details_nutrient_codes - dictionary_codes)
@@ -364,12 +371,12 @@ def print_details_nutrient_code_comparison(
 def print_details_duplicate_food_nutrients(
     details_rows: list[dict[str, str]],
 ) -> None:
-    """Check whether Details has duplicate food + nutrient rows."""
+    """Count repeated food + nutrient pairs in Details."""
     pair_counts: dict[tuple[str, str], int] = {}
 
     for row in details_rows:
         food_code = row[CODE_COLUMN].strip()
-        nutrient_code = row["Nutrient-code"].strip()
+        nutrient_code = row[NUTRIENT_CODE_COLUMN].strip()
         pair = (food_code, nutrient_code)
         pair_counts[pair] = pair_counts.get(pair, 0) + 1
 
@@ -387,6 +394,7 @@ def print_details_duplicate_food_nutrients(
     for (food_code, nutrient_code), count in list(duplicate_pairs.items())[:20]:
         print(f"- food={food_code}, nutrient={nutrient_code}, count={count}")
 
+
 def print_details_value_conflicts(
     details_rows: list[dict[str, str]],
 ) -> None:
@@ -395,9 +403,9 @@ def print_details_value_conflicts(
 
     for row in details_rows:
         food_code = row[CODE_COLUMN].strip()
-        nutrient_code = row["Nutrient-code"].strip()
-        value = row["Gehalte/Value"].strip()
-        unit = row["Eenheid/Unit"].strip()
+        nutrient_code = row[NUTRIENT_CODE_COLUMN].strip()
+        value = row[VALUE_COLUMN].strip()
+        unit = row[UNIT_COLUMN].strip()
 
         pair = (food_code, nutrient_code)
         value_signature = (value, unit)
@@ -416,7 +424,9 @@ def print_details_value_conflicts(
     print("=======================")
     print(f"Food/nutrient pairs with different value or unit: {len(conflict_pairs)}")
 
-    for (food_code, nutrient_code), value_signatures in list(conflict_pairs.items())[:20]:
+    for (food_code, nutrient_code), value_signatures in list(
+        conflict_pairs.items()
+    )[:20]:
         print(f"- food={food_code}, nutrient={nutrient_code}, values={value_signatures}")
 
 
@@ -442,8 +452,8 @@ def print_main_details_value_comparison(
 
     for row in details_rows:
         food_code = row[CODE_COLUMN].strip()
-        nutrient_code = row["Nutrient-code"].strip()
-        value = parse_decimal(row["Gehalte/Value"])
+        nutrient_code = row[NUTRIENT_CODE_COLUMN].strip()
+        value = parse_decimal(row[VALUE_COLUMN])
 
         if food_code and nutrient_code:
             pair = (food_code, nutrient_code)
@@ -478,6 +488,92 @@ def print_main_details_value_comparison(
                     )
 
     print(f"Main/details mismatches: {mismatch_count}")
+
+
+def get_nutrient_completeness(
+    rows: list[dict[str, str]],
+    nutrient_columns: list[str],
+) -> list[tuple[str, int, int]]:
+    """Return present and missing counts for each nutrient column."""
+    completeness_by_nutrient: list[tuple[str, int, int]] = []
+
+    for nutrient_column in nutrient_columns:
+        missing_count = sum(1 for row in rows if not row[nutrient_column])
+        present_count = len(rows) - missing_count
+        completeness_by_nutrient.append((nutrient_column, present_count, missing_count))
+
+    return completeness_by_nutrient
+
+
+def print_all_nutrient_missing_values(
+    rows: list[dict[str, str]],
+    nutrient_columns: list[str],
+) -> None:
+    """Print the nutrient columns with the highest number of missing values."""
+    missing_by_nutrient = get_nutrient_completeness(rows, nutrient_columns)
+    missing_by_nutrient.sort(key=lambda item: item[2], reverse=True)
+
+    print()
+    print("Nutrients with most missing values")
+    print("==================================")
+    for nutrient_column, present_count, missing_count in missing_by_nutrient[:20]:
+        print(
+            f"- {nutrient_column}: "
+            f"present={present_count}, missing={missing_count}"
+        )
+
+
+def print_most_complete_nutrients(
+    rows: list[dict[str, str]],
+    nutrient_columns: list[str],
+) -> None:
+    """Print the nutrient columns with the fewest missing values."""
+    completeness_by_nutrient = get_nutrient_completeness(rows, nutrient_columns)
+    completeness_by_nutrient.sort(key=lambda item: item[2])
+
+    print()
+    print("Most complete nutrients")
+    print("=======================")
+    for nutrient_column, present_count, missing_count in completeness_by_nutrient[:20]:
+        print(
+            f"- {nutrient_column}: "
+            f"present={present_count}, missing={missing_count}"
+        )
+
+
+def print_details_reference_profile(
+    details_rows: list[dict[str, str]],
+) -> None:
+    """Print source/reference coverage from the NEVO details file."""
+    source_code_counts = count_values(details_rows, SOURCE_CODE_COLUMN)
+    reference_counts = count_values(details_rows, REFERENCE_COLUMN)
+
+    missing_source_codes = source_code_counts.get("(blank)", 0)
+    missing_references = reference_counts.get("(blank)", 0)
+
+    print()
+    print("Details source/reference profile")
+    print("================================")
+    print(f"Unique source codes: {len(source_code_counts)}")
+    print(f"Unique references: {len(reference_counts)}")
+    print(f"Rows missing source code: {missing_source_codes}")
+    print(f"Rows missing reference: {missing_references}")
+
+    print("Top 10 source codes:")
+    for source_code, count in sorted(
+        source_code_counts.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:10]:
+        print(f"- {source_code}: {count}")
+
+    print("Top 5 references:")
+    for reference, count in sorted(
+        reference_counts.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:5]:
+        print(f"- {reference}: {count}")
 
 
 def main() -> int:
@@ -527,9 +623,11 @@ def main() -> int:
     print_details_file_profile(DETAILS_FILE, details_rows)
     print_details_food_code_comparison(details_rows, main_food_codes)
     print_details_nutrient_code_comparison(details_rows, dictionary_codes)
-    print_details_duplicate_food_nutrients(details_rows)
     print_details_value_conflicts(details_rows)
     print_main_details_value_comparison(rows, details_rows)
+    print_all_nutrient_missing_values(rows, nutrient_columns)
+    print_most_complete_nutrients(rows, nutrient_columns)
+    print_details_reference_profile(details_rows)
 
     return 0
 

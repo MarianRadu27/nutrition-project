@@ -230,6 +230,80 @@ missing value != zero
 
 For import, missing fibre should be stored as `NULL`, not `0`.
 
+## All Nutrient Missing Values
+
+All 137 nutrient columns were checked for missing values.
+
+Top 20 nutrients with the most missing values:
+
+```text
+OA (g): present=475, missing=1853
+VITK2 (µg): present=503, missing=1825
+NT (g): present=569, missing=1759
+ZEA (µg): present=1008, missing=1320
+ASH (g): present=1032, missing=1296
+LYCPN (µg): present=1070, missing=1258
+F18:3TTTN3 (g): present=1117, missing=1211
+LUTN (µg): present=1120, missing=1208
+TRP (mg): present=1137, missing=1191
+CRYPXB (µg): present=1206, missing=1122
+VITK1 (µg): present=1267, missing=1061
+CARTA (µg): present=1279, missing=1049
+VITK (µg): present=1298, missing=1030
+F21:5CN3 (g): present=1322, missing=1006
+TOCPHD (mg): present=1471, missing=857
+TOCPHB (mg): present=1472, missing=856
+TOCPHG (mg): present=1476, missing=852
+TOCPHA (mg): present=1513, missing=815
+F10:1TRS (g): present=1529, missing=799
+F12:1TRS (g): present=1529, missing=799
+```
+
+Observation:
+
+The nutrients with the most missing values are mostly specialized nutrients, such as organic acids, vitamin K subtypes, carotenoids, amino acids, tocopherol forms, and specific fatty acids.
+
+Conclusion:
+
+NEVO is strong for core nutrients, but not every specialized nutrient is available for every food. Missing nutrient values should remain `NULL` during import. They should not be converted to zero unless the source explicitly reports zero.
+
+## Most Complete Nutrients
+
+The same 137 nutrient columns were also sorted by the fewest missing values.
+
+Top 20 most complete nutrients:
+
+```text
+ENERCJ (kJ): present=2328, missing=0
+ENERCC (kcal): present=2328, missing=0
+WATER (g): present=2328, missing=0
+PROT (g): present=2328, missing=0
+FAT (g): present=2328, missing=0
+FACID (g): present=2328, missing=0
+FASAT (g): present=2328, missing=0
+CHO (g): present=2328, missing=0
+PROTPL (g): present=2327, missing=1
+PROTAN (g): present=2327, missing=1
+SUGAR (g): present=2327, missing=1
+STARCH (g): present=2327, missing=1
+ALC (g): present=2327, missing=1
+NA (mg): present=2326, missing=2
+FIBT (g): present=2321, missing=7
+FAMSCIS (g): present=2320, missing=8
+FAPU (g): present=2319, missing=9
+FE (mg): present=2318, missing=10
+HAEM (mg): present=2317, missing=11
+NHAEM (mg): present=2317, missing=11
+```
+
+Observation:
+
+NEVO has complete or near-complete coverage for core nutrition values, including energy, water, protein, fat, fatty acids, saturated fat, carbohydrate, sugar, starch, sodium, fibre, and iron.
+
+Conclusion:
+
+These highly complete nutrients are good candidates for calculator features, frontend summary views, and early import validation checks.
+
 ## Nutrient Dictionary
 
 Dictionary file:
@@ -416,6 +490,60 @@ Conclusion:
 
 For the main nutrients checked, the wide-format main file and the long-format details file agree. This supports using the main file for food metadata and the details file for nutrient values during a future NEVO import.
 
+## Details Source and Reference Coverage
+
+The source and reference fields in the details file were profiled.
+
+Observed result:
+
+```text
+Unique source codes: 2133
+Unique references: 2189
+Rows missing source code: 0
+Rows missing reference: 0
+```
+
+Top source codes:
+
+```text
+REF.0472: 14932
+MI0201.00270: 8361
+MIR002: 7043
+REF.0814: 6797
+REF.0228: 4569
+MI0201.05041: 4230
+REF.0431: 3810
+REF.0215: 3737
+MI0201.02751: 3285
+REF.0791: 3031
+```
+
+Top references:
+
+```text
+logische redenering: Totaal vet = 0 of bijna 0, dit vetzuur is ingeschat als 0: 14932
+Vetzuursamenstelling berekend obv het vetzuurpatroon van vergelijkbaar product: 270 Melk rauwe: 8361
+Berekend als (gewogen) gemiddelde van meerdere analyses en/of fabrikantgegevens: 7042
+NEVO-team Vaststellen logische nullen tbv NEVO (intern document) / Determination of logical value for NEVO (internal document), 2017 RIVM: 6797
+Haan HPM de Actualisering van de samenstelling van vlees in de NEVO-tabel, TNO / RIVM 2010, TNO: 4569
+```
+
+Observation:
+
+Every details row has source and reference metadata. This is strong from a data lineage perspective because nutrient values can be traced back to a source code and a reference text.
+
+Conclusion:
+
+The future import model should avoid repeating reference text directly on every nutrient-value row. A better model is to store references once and link nutrient values to them.
+
+Possible future mapping:
+
+```text
+Broncode/Source code -> source_references.source_code
+Referentie/Reference -> source_references.reference_text
+source_food_nutrient_values.reference_id -> source_references.id
+```
+
 ## Import Implications
 
 Recommended future mapping:
@@ -443,8 +571,5 @@ The current calculator should continue using the current local Appendix H datase
 
 Recommended next checks:
 
-1. Count missing values across all nutrient columns, not just main macros.
-2. Identify nutrients with the most missing values.
-3. Review reference/source fields in the details file.
-4. Decide how to store `per 100g` and `per 100ml` rows in the database.
-5. Draft the external-source database schema before importing NEVO.
+1. Decide how to store `per 100g` and `per 100ml` rows in the database.
+2. Draft the external-source database schema before importing NEVO.

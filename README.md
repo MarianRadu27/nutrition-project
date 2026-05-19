@@ -43,7 +43,7 @@ The app lets users browse foods, filter by category and food group, calculate me
 ## Project Structure
 
 ```text
-nutrition-project/
+nutrition-data-platform/
 |
 |-- backend/
 |   |-- app/
@@ -417,7 +417,7 @@ Created by **Marian Radu**.
 GitHub:
 
 ```text
-https://github.com/MarianRadu27/nutrition-project
+https://github.com/MarianRadu27/nutrition-data-platform
 ```
 
 LinkedIn:
